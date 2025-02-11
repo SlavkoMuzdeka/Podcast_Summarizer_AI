@@ -1,0 +1,5 @@
+{
+  "DEBUG": true,
+  "WHISPER_MODEL": "base",
+  "OPENAI_MODEL_ENGINE": "gpt-4-turbo"
+}
