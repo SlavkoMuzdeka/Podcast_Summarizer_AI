@@ -5,31 +5,31 @@ import logging
 from typing import Tuple
 from yt_dlp import YoutubeDL
 from downloader import Downloader
+from utils.youtube_utils import extract_video_id, extract_video_url, get_ydl_opts
 
-# Set up logging
 logger = logging.getLogger(__name__)
 
-# Constants
 MP3_EXTENSION = ".mp3"
+YOUTUBE_DIR = "youtube"
+DOWNLOADS_DIR = "downloads"
 METADATA_EXTENSION = ".info.json"
-OUTPUT_DIR = os.path.join("downloads", "youtube")
+OUTPUT_DIR = os.path.join(DOWNLOADS_DIR, YOUTUBE_DIR)
 
 
 class YouTube_Downloader(Downloader):
     """Downloads YouTube videos as MP3 and retrieves metadata."""
 
-    def __init__(self, debug: bool):
-        self.debug = debug
+    def __init__(self, config: dict):
+        self.config = config
+        self.debug = self.config.get("DEBUG", False)
 
     def download_mp3(self) -> str:
         """Downloads the video as an MP3 file."""
-        return self._download_file(self._get_ydl_opts(audio_only=True), MP3_EXTENSION)
+        return self._download_file(extension=MP3_EXTENSION, audio_only=True)
 
     def download_metadata(self) -> dict:
         """Downloads video metadata as a JSON file and returns its contents."""
-        metadata_path = self._download_file(
-            self._get_ydl_opts(metadata_only=True), METADATA_EXTENSION
-        )
+        metadata_path = self._download_file(extension=METADATA_EXTENSION)
 
         try:
             with open(metadata_path, "r", encoding="utf8") as file:
@@ -44,8 +44,8 @@ class YouTube_Downloader(Downloader):
         self, source_url: str, episode_name: str | None
     ) -> Tuple[str, str, str]:
         """Downloads both the MP3 file and metadata, then logs key details."""
-        self.source_url = self._extract_video_url(source_url)
-        self.video_id = self._extract_video_id()
+        self.source_url = extract_video_url(source_url=source_url)
+        self.video_id = extract_video_id(source_url=self.source_url)
 
         if self.debug:
             logger.info(f"Video ID is: {self.video_id}")
@@ -61,15 +61,7 @@ class YouTube_Downloader(Downloader):
 
         return mp3_path, metadata.get("title", ""), self.video_id
 
-    def _extract_video_url(self, source_url) -> str:
-        """Extracts video URL from a source URL."""
-        return source_url.split("&")[0]
-
-    def _extract_video_id(self) -> str:
-        """Extracts video ID from a source URL."""
-        return self.source_url.split("=")[-1]
-
-    def _download_file(self, ydl_opts: dict, extension: str) -> str:
+    def _download_file(self, extension: str, audio_only: bool = False) -> str:
         """Handles downloading the requested file type."""
         output_path = os.path.join(
             os.getcwd(), OUTPUT_DIR, self.video_id, f"{self.video_id}{extension}"
@@ -77,10 +69,10 @@ class YouTube_Downloader(Downloader):
 
         if os.path.exists(output_path):
             if self.debug:
-                logger.info("File already exists.")
+                logger.info(f"File already exists ({extension}).")
             return output_path
 
-        with YoutubeDL(ydl_opts) as ydl:
+        with YoutubeDL(get_ydl_opts(OUTPUT_DIR, audio_only)) as ydl:
             try:
                 ydl.download([self.source_url])
             except Exception as e:
@@ -91,35 +83,3 @@ class YouTube_Downloader(Downloader):
             logger.info("Successfully downloaded episode.")
 
         return output_path
-
-    def _get_ydl_opts(
-        self, audio_only: bool = False, metadata_only: bool = False
-    ) -> dict:
-        """Returns appropriate yt-dlp options based on request type."""
-        opts = {
-            "outtmpl": os.path.join(OUTPUT_DIR, "%(id)s", "%(id)s.%(ext)s"),
-        }
-
-        if audio_only:
-            opts.update(
-                {
-                    "format": "bestaudio/best",
-                    "postprocessors": [
-                        {
-                            "key": "FFmpegExtractAudio",
-                            "preferredcodec": "mp3",
-                            "preferredquality": "192",
-                        }
-                    ],
-                }
-            )
-
-        if metadata_only:
-            opts.update(
-                {
-                    "skip_download": True,
-                    "writeinfojson": True,
-                }
-            )
-
-        return opts
