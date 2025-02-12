@@ -1,25 +1,18 @@
 import os
-import openai
 import logging
-import tiktoken
 
+from openai import OpenAI
+from typing import Optional
 from dotenv import load_dotenv
-from typing import List, Tuple
+from utils.openai_utils import (
+    chunk_on_delimiter,
+    get_chat_completion,
+    num_tokens_from_text,
+)
 
-# Load environment variables
 load_dotenv()
 
-# Set up logging
 logger = logging.getLogger(__name__)
-
-# Constants
-TOKEN_CONSTANT = 1000
-CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", 3000))
-OPEN_AI_PRICE = float(os.getenv("OPEN_AI_PRICE", 0.002))
-ENCODING_TYPE = os.getenv("ENCODING_TYPE", "cl100k_base")
-MODEL_ENGINE = os.getenv("OPENAI_MODEL_ENGINE", "gpt-3.5-turbo")
-API_KEY = os.getenv("OPENAI_API_KEY")
-openai.api_key = API_KEY
 
 
 class OpenAI_Summarizer:
@@ -27,108 +20,77 @@ class OpenAI_Summarizer:
     A class for summarizing podcast transcripts using OpenAI's GPT models.
     """
 
-    def __init__(self, max_sentences: int = 15):
+    def __init__(self, config: dict):
         """
-        Initialize the summarizer with the maximum number of sentences in the final summary.
+        Initializes the OpenAI Summarizer.
+
+        Parameters:
+        - config (dict): Configuration dictionary containing settings, including whether debugging is enabled.
         """
-        self.max_sentences = max_sentences
+        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.config = config
+        self.debug = self.config.get("DEBUG", False)
 
-    def summarize(self, transcribed_text: str) -> Tuple[str, float]:
+    def summarize(
+        self,
+        text: str,
+        detail: float = 0,
+        additional_instructions: Optional[str] = None,
+        minimum_chunk_size: Optional[int] = 500,
+        chunk_delimiter: str = ".",
+    ):
         """
-        Summarizes the full transcribed text by first chunking it, then generating partial summaries,
-        and finally producing a final concise summary.
+        Summarizes a given text by splitting it into chunks and summarizing each individually.
+
+        Parameters:
+        - text (str): The text to be summarized.
+        - detail (float, optional): Value between 0 and 1 indicating the level of detail (0 = highly summarized, 1 = detailed). Defaults to 0.
+        - additional_instructions (Optional[str], optional): Additional custom instructions for the summarization.
+        - minimum_chunk_size (Optional[int], optional): Minimum chunk size for splitting text. Defaults to 500 tokens.
+        - chunk_delimiter (str, optional): Delimiter used to split the text into chunks. Defaults to ".".
+
+        Returns:
+        - str: The final compiled summary of the text.
         """
-        chunks = self._split_into_chunks(transcribed_text)
-        partial_summaries, tokens_used = self._summarize_chunks(chunks)
+        # Ensure detail value is within valid range
+        assert 0 <= detail <= 1
 
-        combined_summary = "\n\n".join(partial_summaries)
-        final_prompt = f"""
-            Instructions:
-            Summarize the following podcast text into a list of {self.max_sentences} sentences
-            Contextualize the topics to the podcast
-            Don't mention the podcast itself in the summary.
-
-            Text: {combined_summary}
-
-            Summary:
-        """
-
-        summary, token_count = self._call_openai(final_prompt)
-        tokens_used += token_count
-
-        api_cost = float(tokens_used / TOKEN_CONSTANT) * OPEN_AI_PRICE
-        return summary, api_cost
-
-    def _num_tokens_from_string(self, text: str) -> int:
-        """
-        Returns the number of tokens in a given text string.
-        """
-        encoding = tiktoken.get_encoding(ENCODING_TYPE)
-        return len(encoding.encode(text))
-
-    def _split_into_chunks(self, transcript: str) -> List[str]:
-        """
-        Splits the transcript into chunks based on token limits.
-        """
-        chunks, buffer, token_count = [], "", 0
-
-        sentences = transcript.split(".")
-        for sentence in sentences:
-            num_tokens = self._num_tokens_from_string(sentence)
-            token_count += num_tokens
-            buffer += sentence + "."
-
-            if token_count > CHUNK_SIZE:
-                chunks.append(buffer)
-                buffer = ""
-                token_count = 0
-
-        if buffer:
-            chunks.append(buffer)
-
-        logger.info(f"Created {len(chunks)} chunks from transcript.")
-        return chunks
-
-    def _call_openai(self, prompt: str) -> Tuple[str, int]:
-        """
-        Calls the OpenAI API with a prompt and returns the response along with token usage.
-        """
-        response = openai.chat.completions.create(
-            model=MODEL_ENGINE,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are an AI assistant that summarizes podcasts.",
-                },
-                {"role": "user", "content": prompt},
-            ],
+        # Determine number of chunks dynamically based on the desired detail level
+        min_chunks = 1
+        max_chunks = len(
+            chunk_on_delimiter(text, minimum_chunk_size, chunk_delimiter, self.debug)
         )
-        choices = response.choices
+        num_chunks = int(min_chunks + detail * (max_chunks - min_chunks))
 
-        if choices:
-            content = choices[0].message.content
-            total_tokens = response.usage.total_tokens
-            return content, total_tokens
-        else:
-            logger.error("No response choices received from OpenAI API.")
-            raise RuntimeError("Failed to retrieve a summary from OpenAI API.")
+        # Calculate chunk size based on total document length and target chunk count
+        document_length = num_tokens_from_text(text)
+        chunk_size = max(minimum_chunk_size, document_length // num_chunks)
+        text_chunks = chunk_on_delimiter(text, chunk_size, chunk_delimiter, self.debug)
 
-    def _summarize_chunks(self, chunks: List[str]) -> Tuple[List[str], int]:
-        """
-        Processes chunks through OpenAI API to generate summaries.
-        """
-        summaries, total_tokens = [], 0
+        if self.debug:
+            logger.info(
+                f"Splitting the text into {len(text_chunks)} chunks to be summarized."
+            )
+            logger.info(
+                f"Chunk lengths are {[num_tokens_from_text(x) for x in text_chunks]}"
+            )
 
-        for chunk in chunks:
-            prompt = f"""
-                Summarize the following podcast partial transcript into sentences:
+        # Construct system message
+        system_message_content = "Rewrite this text in summarized form."
+        if additional_instructions is not None:
+            system_message_content += f"\n\n{additional_instructions}"
 
-                {chunk}
+        # Summarize each chunk individually and accumulate results
+        accumulated_summaries = []
+        for chunk in text_chunks:
+            messages = [
+                {"role": "system", "content": system_message_content},
+                {"role": "user", "content": chunk},
+            ]
+            response = get_chat_completion(self.client, messages)
+            accumulated_summaries.append(response)
 
-                Summary:
-            """
-            summary, token_count = self._call_openai(prompt)
-            total_tokens += token_count
-            summaries.append(summary)
+        # Compile final summary from individual chunk summaries
+        final_summary = "\n\n".join(accumulated_summaries)
 
-        return summaries, total_tokens
+        return final_summary
