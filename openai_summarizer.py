@@ -68,6 +68,7 @@ class OpenAI_Summarizer:
         text_chunks = chunk_on_delimiter(text, chunk_size, chunk_delimiter, self.debug)
 
         if self.debug:
+            logger.info(f"Total tokens in document: {document_length}")
             logger.info(
                 f"Splitting the text into {len(text_chunks)} chunks to be summarized."
             )
