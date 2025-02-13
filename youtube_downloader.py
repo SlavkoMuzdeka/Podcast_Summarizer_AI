@@ -33,8 +33,6 @@ class YouTube_Downloader(Downloader):
 
         try:
             with open(metadata_path, "r", encoding="utf8") as file:
-                if self.debug:
-                    logger.info("Successfully downloaded episode metadata.")
                 return json.load(file)
         except Exception as e:
             logger.error(f"Failed to read metadata file: {e}")
@@ -80,6 +78,6 @@ class YouTube_Downloader(Downloader):
                 raise
 
         if self.debug:
-            logger.info("Successfully downloaded episode.")
+            logger.info(f"Successfully downloaded file ({extension}).")
 
         return output_path
