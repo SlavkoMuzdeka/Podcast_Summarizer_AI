@@ -122,6 +122,11 @@ To run the project, ensure you have the following dependencies:
 - `ffmpeg` (for downloading podcast audio)
 - Other Python dependencies listed in `requirements.txt`.
 
+Additionally, you will need to create a `.env` file in the root of your project directory and store your `OpenAI API key` in it. The file should contain the following line:
+  ```plaintext
+  OPENAI_API_KEY="your_openai_api_key_here"
+  ```
+
 It is recommended to use **Python 3.11+** and set up a **virtual environment** for the project. You can follow the steps below to get started:
 
 ### Steps to Run the Project:
