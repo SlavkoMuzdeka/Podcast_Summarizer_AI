@@ -1,5 +1,6 @@
 import os
 import logging
+import streamlit as st
 
 from openai import OpenAI
 from typing import Optional
@@ -27,7 +28,10 @@ class OpenAI_Summarizer:
         Parameters:
         - config (dict): Configuration dictionary containing settings, including whether debugging is enabled.
         """
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        # self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY")) # If you do not run on Streamlit
+        self.client = OpenAI(
+            api_key=st.secrets.get("OPENAI_API_KEY", "")
+        )  # If you run on Streamlit
         self.config = config
         self.debug = self.config.get("DEBUG", False)
 
