@@ -159,7 +159,20 @@ It is recommended to use **Python 3.11+** and set up a **virtual environment** f
 
     This will also install `Whisper` locally, which is used for transcribing podcast episodes into text. If you have a `GPU`, the transcription will be faster. Otherwise, it will run on the `CPU`, which will be slower. The default model used by `Whisper` is `base`, but you can change the model by updating the `config.json` file.
 
-4. **Run the project**: After the installation is complete, you can run the project using Streamlit:
+4. Ensure `ffmpeg` package is installed on your machine, as it is required for downloading audio files. If not installed, you can install it using:
+   - **Linux/MacOS**:
+     
+     ```bash
+     sudo apt update && sudo apt install ffmpeg  # Debian-based (Ubuntu)
+     brew install ffmpeg  # macOS (Homebrew)
+     ```
+
+   - **Windows**:
+     - Download the latest version from [Download FFmpeg](https://ffmpeg.org/download.html) official website.
+     - Add `ffmpeg` to the system `PATH` to use it from the command line.
+
+
+5. **Run the project**: After the installation is complete, you can run the project using Streamlit:
     ```bash
     streamlit run streamlit_app.py
     ```
