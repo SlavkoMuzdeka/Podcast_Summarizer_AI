@@ -2,8 +2,6 @@ import os
 import whisper
 import logging
 
-from utils.whisper_utils import get_transcript_path, save_transcript
-
 logger = logging.getLogger(__name__)
 
 
@@ -25,28 +23,30 @@ class Whisper_Transcriber:
             config (dict): Configuration settings, including 'WHISPER_MODEL' and 'DEBUG'.
         """
         self.config = config
-        self.debug = self.config.get("DEBUG", False)
-        self.model = whisper.load_model(self.config.get("WHISPER_MODEL", "base"))
+        self.debug = config.get("debug", False)
+        self.model = whisper.load_model(config.get("model", "base"))
 
-    def transcribe(self, source: str, audio_path: str, video_id: str) -> str:
+    def transcribe(self, audio_path: str, video_id: str) -> str:
         """
         Transcribes an audio file into text using the Whisper model.
 
         Args:
-            source (str): The source platform or category of the audio.
             audio_path (str): The file path of the audio to be transcribed.
             video_id (str): Unique identifier for the audio/video.
 
         Returns:
             str: The transcribed text.
         """
-        self.source, self.video_id = source, video_id
-        transcript_path = get_transcript_path(self.source, self.video_id)
+        transcript_path = os.path.join(
+            os.getcwd(),
+            self.config.get("downloads_dir", "downloads"),
+            video_id,
+            f"{video_id}{self.config.get('transcription_extension', '.txt')}",
+        )
 
         # Check if a transcription already exists to avoid re-processing
-        if os.path.exists(transcript_path):
-            if self.debug:
-                logger.info("Transcription already exists.")
+        if self.debug and os.path.exists(transcript_path):
+            logger.info("Transcription already exists.")
             with open(transcript_path, "r", encoding="utf-8") as file:
                 return file.read()
 
@@ -61,6 +61,9 @@ class Whisper_Transcriber:
 
         transcribed_text = result.get("text", "")
 
-        # Save the transcription to a file
-        save_transcript(self.debug, transcript_path, transcribed_text)
+        if self.debug:
+            with open(transcript_path, "w", encoding="utf-8") as file:
+                file.write(transcribed_text)
+                logger.info(f"Transcript saved at: {transcript_path}")
+
         return transcribed_text

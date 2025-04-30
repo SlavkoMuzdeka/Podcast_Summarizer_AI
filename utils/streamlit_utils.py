@@ -77,5 +77,5 @@ def show_succesfully_summarized(text: str):
     - text (str): The summarized text.
     """
     st.subheader("✅ Summarized")
-    st.text_area("Summary:", value=text, disabled=True, height=250)
+    st.markdown(text)
     st.divider()

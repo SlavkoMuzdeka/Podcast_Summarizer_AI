@@ -18,7 +18,7 @@ from utils.streamlit_utils import (
 )
 
 # Load environment variables
-load_dotenv()
+load_dotenv(override=True)
 
 # Configure logging
 logging.basicConfig(
@@ -73,11 +73,8 @@ def summarize(
         # Step 2: Transcribe the episode
         if mp3_file_path:
             with st.spinner("Transcribing episode...", show_time=True):
-                source = (
-                    "youtube" if isinstance(downloader, YouTube_Downloader) else "rss"
-                )
                 transcribed_text = transcriber.transcribe(
-                    source=source, audio_path=mp3_file_path, video_id=video_id
+                    audio_path=mp3_file_path, video_id=video_id
                 )
                 show_succesfully_transcribed()
 
@@ -98,16 +95,20 @@ def main():
 
     # Initialize session state for necessary components
     if "youtube_downloader" not in st.session_state:
-        st.session_state.youtube_downloader = YouTube_Downloader(config=config)
+        st.session_state.youtube_downloader = YouTube_Downloader(
+            config=config["youtube"]
+        )
 
     if "rss_downloader" not in st.session_state:
         st.session_state.rss_downloader = RSS_Feed_Downloader(config=config)
 
     if "whisper_transcriber" not in st.session_state:
-        st.session_state.whisper_transcriber = Whisper_Transcriber(config=config)
+        st.session_state.whisper_transcriber = Whisper_Transcriber(
+            config=config["whisper"]
+        )
 
     if "openai_summarizer" not in st.session_state:
-        st.session_state.openai_summarizer = OpenAI_Summarizer(config=config)
+        st.session_state.openai_summarizer = OpenAI_Summarizer(config=config["openai"])
 
     # Retrieve instances from session state
     rss_downloader = st.session_state.rss_downloader

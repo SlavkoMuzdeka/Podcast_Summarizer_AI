@@ -10,7 +10,7 @@ from utils.openai_utils import (
     num_tokens_from_text,
 )
 
-load_dotenv()
+load_dotenv(override=True)
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,31 @@ class OpenAI_Summarizer:
     """
     A class for summarizing podcast transcripts using OpenAI's GPT models.
     """
+
+    DEFAULT_SYSTEM_PROMPT = """
+        # Role and Objective
+        You are a seasoned podcast transcript summarization expert charged with distilling a full transcript into concise, interconnected summaries.
+
+        # Instructions
+        1. The transcript is divided into labeled segments using markers like `--- Chunk 1 ---`. Detect each boundary clearly.  
+        2. For *each* chunk, compose **exactly one or two** bullet points—no more, no fewer—capturing key insights, tone, and notable quotes.  
+        4. Ensure bullets build on one another to preserve narrative flow; use brief transitions (e.g., “**Building on this…**”, “Subsequently…”).  
+        5. Do not add, remove, or reorder chunks: generate exactly N bullets for N chunks, in sequential order.  
+        6. Format your response in Markdown:
+            - Use `- ` for bullets.
+            - **Bold** to highlight the key takeaway in each bullet.
+            - *Italics* for nuance or tone.
+            - Inline code (``) for any quoted text or technical terms.
+
+
+        # Reasoning Steps
+        a. Parse all '--- Chunk X ---' markers to segment the transcript.  
+        b. For chunk X, isolate core ideas, then compose a five-sentence summary that may recall earlier context for cohesion.  
+        c. Maintain a positive, engaging tone throughout.
+
+        # Final Instruction
+        Now, think step by step, review all labeled chunks, and output the bullet-point summaries exactly as specified in the instructions.
+        """
 
     def __init__(self, config: dict):
         """
@@ -32,13 +57,12 @@ class OpenAI_Summarizer:
             api_key=st.secrets.get("OPENAI_API_KEY", "")
         )  # If you run on Streamlit
         self.config = config
-        self.debug = self.config.get("DEBUG", False)
+        self.debug = self.config.get("debug", False)
 
     def summarize(
         self,
         text: str,
         detail: float = 0,
-        additional_instructions: Optional[str] = None,
         minimum_chunk_size: Optional[int] = 500,
         chunk_delimiter: str = ".",
     ):
@@ -48,7 +72,6 @@ class OpenAI_Summarizer:
         Parameters:
         - text (str): The text to be summarized.
         - detail (float, optional): Value between 0 and 1 indicating the level of detail (0 = highly summarized, 1 = detailed). Defaults to 0.
-        - additional_instructions (Optional[str], optional): Additional custom instructions for the summarization.
         - minimum_chunk_size (Optional[int], optional): Minimum chunk size for splitting text. Defaults to 500 tokens.
         - chunk_delimiter (str, optional): Delimiter used to split the text into chunks. Defaults to ".".
 
@@ -61,7 +84,12 @@ class OpenAI_Summarizer:
         # Determine number of chunks dynamically based on the desired detail level
         min_chunks = 1
         max_chunks = len(
-            chunk_on_delimiter(text, minimum_chunk_size, chunk_delimiter, self.debug)
+            chunk_on_delimiter(
+                text=text,
+                max_tokens=minimum_chunk_size,
+                delimiter=chunk_delimiter,
+                debug=self.debug,
+            )
         )
         num_chunks = int(min_chunks + detail * (max_chunks - min_chunks))
 
@@ -79,22 +107,16 @@ class OpenAI_Summarizer:
                 f"Chunk lengths are {[num_tokens_from_text(x) for x in text_chunks]}"
             )
 
-        # Construct system message
-        system_message_content = "Rewrite this text in summarized form."
-        if additional_instructions is not None:
-            system_message_content += f"\n\n{additional_instructions}"
+        labeled = []
+        for idx, chunk in enumerate(text_chunks, start=1):
+            labeled.append(f"--- Chunk {idx} ---\n{chunk.strip()}")
+        query = "\n\n".join(labeled)
 
-        # Summarize each chunk individually and accumulate results
-        accumulated_summaries = []
-        for chunk in text_chunks:
-            messages = [
-                {"role": "system", "content": system_message_content},
-                {"role": "user", "content": chunk},
-            ]
-            response = get_chat_completion(self.client, messages)
-            accumulated_summaries.append(response)
+        messages = [
+            {"role": "system", "content": self.DEFAULT_SYSTEM_PROMPT},
+            {"role": "user", "content": f"{query}"},
+        ]
 
-        # Compile final summary from individual chunk summaries
-        final_summary = "\n\n".join(accumulated_summaries)
-
-        return final_summary
+        return get_chat_completion(
+            self.client, messages, self.config.get("model", "gpt-3.5-turbo")
+        )

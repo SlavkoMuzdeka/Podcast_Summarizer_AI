@@ -1,5 +1,24 @@
 {
-  "DEBUG": true,
-  "WHISPER_MODEL": "base",
-  "OPENAI_MODEL_ENGINE": "gpt-3.5-turbo"
+  "whisper": {
+    "debug": true,
+    "model": "base",
+    "downloads_dir": "downloads",
+    "transcrition_ext": ".txt"
+  },
+  "youtube": {
+    "debug": true,
+    "mp3_ext": ".mp3",
+    "metadata_ext": ".info.json",
+    "downloads_dir": "downloads"
+  },
+  "rss": {
+    "debug": true,
+    "downloads_dir": "downloads",
+    "mp3_ext": ".mp3",
+    "chunk_size": 8192
+  },
+  "openai": {
+    "debug": "true",
+    "model": "gpt-4.1"
+  }
 }

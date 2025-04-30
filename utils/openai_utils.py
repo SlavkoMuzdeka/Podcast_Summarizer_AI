@@ -1,4 +1,3 @@
-import json
 import logging
 import tiktoken
 
@@ -7,27 +6,21 @@ from typing import List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-# Load OpenAI model configuration
-with open("config.json", "r") as f:
-    config = json.load(f)
-    MODEL = config.get("OPENAI_MODEL_ENGINE", "gpt-3.5-turbo")
 
-
-def get_chat_completion(client: OpenAI, messages: List[dict]):
+def get_chat_completion(client: OpenAI, messages: List[dict], model: str) -> str:
     """
     Calls the OpenAI API to generate a response based on given messages.
 
     Parameters:
     - client (OpenAI): OpenAI client instance.
     - messages (List[dict]): List of messages in the format required for OpenAI's API.
+    - model (str): The model to be used for the API call.
 
     Returns:
     - str: The generated response from OpenAI.
     """
     response = client.chat.completions.create(
-        model=MODEL,
-        messages=messages,
-        temperature=0,
+        model=model, messages=messages, temperature=0
     )
     choices = response.choices
 
@@ -110,7 +103,7 @@ def _combine_chunks_with_no_minimum(
             continue  # Skip this chunk as it exceeds max tokens
 
         extended_candidate_token_count = num_tokens_from_text(
-            chunk_delimiter.join(candidate + [chunk]),
+            chunk_delimiter.join(candidate + [chunk])
         )
 
         # If adding this chunk exceeds max_tokens, save the candidate and start a new one
@@ -141,5 +134,5 @@ def num_tokens_from_text(text: str) -> int:
     Returns:
     - int: The estimated token count.
     """
-    encoding = tiktoken.encoding_for_model(MODEL)
+    encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
     return len(encoding.encode(text))

@@ -173,4 +173,3 @@ cython_debug/
 .streamlit/secrets.toml
 
 pom.py
-Data/
