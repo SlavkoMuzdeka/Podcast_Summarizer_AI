@@ -27,9 +27,9 @@ class OpenAI_Summarizer:
         # Instructions
         1. The transcript is divided into labeled segments using markers like `--- Chunk 1 ---`. Detect each boundary clearly.  
         2. For *each* chunk, compose **exactly one or two** bullet points—no more, no fewer—capturing key insights, tone, and notable quotes.  
-        4. Ensure bullets build on one another to preserve narrative flow; use brief transitions (e.g., “**Building on this…**”, “Subsequently…”).  
-        5. Do not add, remove, or reorder chunks: generate exactly N bullets for N chunks, in sequential order.  
-        6. Format your response in Markdown:
+        3. Ensure bullets build on one another to preserve narrative flow; use brief transitions (e.g., “**Building on this…**”, “Subsequently…”).  
+        4. Do not add, remove, or reorder chunks: generate exactly N bullets for N chunks, in sequential order.  
+        5. Format your response in Markdown:
             - Use `- ` for bullets.
             - **Bold** to highlight the key takeaway in each bullet.
             - *Italics* for nuance or tone.

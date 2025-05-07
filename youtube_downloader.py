@@ -18,7 +18,7 @@ class YouTube_Downloader(Downloader):
 
     def download_episode(
         self, source_url: str, episode_name: str | None
-    ) -> Tuple[str, str, str]:
+    ) -> Tuple[str, dict]:
         """Downloads both the MP3 file and metadata, then logs key details."""
         self.source_url = source_url.split("&")[0]
         self.video_id = self.source_url.split("=")[-1]
@@ -26,7 +26,7 @@ class YouTube_Downloader(Downloader):
         mp3_path = self._download_mp3()
         metadata = self._download_metadata()
 
-        return mp3_path, metadata.get("title", ""), self.video_id
+        return mp3_path, metadata
 
     def _download_mp3(self) -> str:
         """Downloads the video as an MP3 file."""
